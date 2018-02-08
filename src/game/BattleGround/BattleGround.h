@@ -20,10 +20,10 @@
 #define __BATTLEGROUND_H
 
 #include "Common.h"
-#include "SharedDefines.h"
-#include "Map.h"
+#include "Globals/SharedDefines.h"
+#include "Maps/Map.h"
 #include "ByteBuffer.h"
-#include "ObjectGuid.h"
+#include "Entities/ObjectGuid.h"
 
 // magic event-numbers
 #define BG_EVENT_NONE 255
@@ -414,7 +414,7 @@ class BattleGround
         void UpdateWorldState(uint32 Field, uint32 Value);
         void UpdateWorldStateForPlayer(uint32 Field, uint32 Value, Player* Source) const;
         virtual void EndBattleGround(Team winner);
-    static void BlockMovement(Player* plr);
+        static void BlockMovement(Player* plr);
 
         void SendMessageToAll(int32 entry, ChatMsg type, Player const* source = nullptr);
         void SendYellToAll(int32 entry, uint32 language, ObjectGuid guid);

@@ -963,7 +963,7 @@ void Log::outErrorScriptLib(const char* err, ...)
     fflush(stderr);
 }
 
-void Log::outWorldPacketDump(const char* socket, uint32 opcode, char const* opcodeName, ByteBuffer const &packet, bool incoming)
+void Log::outWorldPacketDump(const char* socket, uint32 opcode, char const* opcodeName, ByteBuffer const& packet, bool incoming)
 {
     if (!worldLogfile)
         return;
@@ -1059,6 +1059,11 @@ void Log::setScriptLibraryErrorFile(char const* fname, char const* libName)
     std::string fileName = m_logsDir;
     fileName.append(fname);
     scriptErrLogFile = fopen(fileName.c_str(), "a");
+}
+
+void outstring_log()
+{
+    sLog.outString();
 }
 
 void outstring_log(const char* str, ...)

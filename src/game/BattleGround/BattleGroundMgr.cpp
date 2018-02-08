@@ -17,8 +17,8 @@
  */
 
 #include "Common.h"
-#include "SharedDefines.h"
-#include "Player.h"
+#include "Globals/SharedDefines.h"
+#include "Entities/Player.h"
 #include "BattleGroundMgr.h"
 #include "BattleGroundAV.h"
 #include "BattleGroundAB.h"
@@ -28,16 +28,17 @@
 #include "BattleGroundBE.h"
 #include "BattleGroundAA.h"
 #include "BattleGroundRL.h"
-#include "MapManager.h"
-#include "Map.h"
-#include "ObjectMgr.h"
+#include "Maps/MapManager.h"
+#include "Maps/Map.h"
+#include "Globals/ObjectMgr.h"
 #include "ProgressBar.h"
-#include "Chat.h"
-#include "ArenaTeam.h"
-#include "World.h"
+#include "Chat/Chat.h"
+#include "Arena/ArenaTeam.h"
+#include "World/World.h"
 #include "WorldPacket.h"
 #include "GameEventMgr.h"
 #include "LuaEngine.h"
+#include "GameEvents/GameEventMgr.h"
 
 #include "Policies/Singleton.h"
 
@@ -69,7 +70,7 @@ BattleGroundQueue::~BattleGroundQueue()
         for (uint8 j = 0; j < BG_QUEUE_GROUP_TYPES_COUNT; ++j)
         {
             for (GroupsQueueType::iterator itr = m_QueuedGroups[i][j].begin(); itr != m_QueuedGroups[i][j].end(); ++itr)
-                delete(*itr);
+                delete (*itr);
             m_QueuedGroups[i][j].clear();
         }
     }
@@ -1259,7 +1260,7 @@ void BattleGroundMgr::BuildPvpLogDataPacket(WorldPacket& data, BattleGround* bg)
         data << uint32(at1 ? uint32(at1->GetRating() + bg->m_ArenaTeamRatingChanges[1]) : 0);
         data << uint32(at2 ? uint32(at2->GetRating()) : 0);
         data << uint32(at2 ? uint32(at2->GetRating() + bg->m_ArenaTeamRatingChanges[0]) : 0);
-        
+
         data << (at1 ? at1->GetName() : "Unknown");
         data << (at2 ? at2->GetName() : "Unknown");
     }
@@ -1679,12 +1680,19 @@ void BattleGroundMgr::InitAutomaticArenaPointDistribution()
 {
     if (sWorld.getConfig(CONFIG_BOOL_ARENA_AUTO_DISTRIBUTE_POINTS))
     {
-        DEBUG_LOG("Initializing Automatic Arena Point Distribution");
         QueryResult* result = CharacterDatabase.Query("SELECT NextArenaPointDistributionTime FROM saved_variables");
-        if (!result)
+        if (!result) // if not set generate time for next wednesday
         {
-            DEBUG_LOG("Battleground: Next arena point distribution time not found in SavedVariables, reseting it now.");
-            m_NextAutoDistributionTime = time_t(sWorld.GetGameTime() + BATTLEGROUND_ARENA_POINT_DISTRIBUTION_DAY * sWorld.getConfig(CONFIG_UINT32_ARENA_AUTO_DISTRIBUTE_INTERVAL_DAYS));
+            // generate time by config on first server launch
+            time_t curTime = time(nullptr);
+            tm localTm = *localtime(&curTime);
+            localTm.tm_hour = sWorld.getConfig(CONFIG_UINT32_QUEST_DAILY_RESET_HOUR);
+            localTm.tm_min = 0;
+            localTm.tm_sec = 0;
+            localTm.tm_mday += ((7 - localTm.tm_wday + sWorld.getConfig(CONFIG_UINT32_ARENA_FIRST_RESET_DAY)) % 7);
+            localTm.tm_isdst = -1;
+            m_NextAutoDistributionTime = mktime(&localTm);
+
             CharacterDatabase.PExecute("INSERT INTO saved_variables (NextArenaPointDistributionTime) VALUES ('" UI64FMTD "')", uint64(m_NextAutoDistributionTime));
         }
         else
@@ -1692,7 +1700,8 @@ void BattleGroundMgr::InitAutomaticArenaPointDistribution()
             m_NextAutoDistributionTime = time_t((*result)[0].GetUInt64());
             delete result;
         }
-        DEBUG_LOG("Automatic Arena Point Distribution initialized.");
+
+        //uint32 dayofweek = sWorld.getConfig(CONFIG_UINT32_ARENA_AUTO_DISTRIBUTE_INTERVAL_DAYS);
     }
 }
 
@@ -1773,7 +1782,7 @@ void BattleGroundMgr::BuildBattleGroundListPacket(WorldPacket& data, ObjectGuid 
             data << uint32(*itr);
             ++count;
         }
-        data.put<uint32>(count_pos , count);
+        data.put<uint32>(count_pos, count);
     }
 }
 

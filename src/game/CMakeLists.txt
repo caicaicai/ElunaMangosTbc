@@ -19,21 +19,12 @@
 set(LIBRARY_NAME game)
 
 add_definitions(-DDT_POLYREF64)
-
-# include external dependencies libs headers (warnings disabled)
-include_directories(SYSTEM
-  ${CMAKE_SOURCE_DIR}/dep/include/g3dlite
-  ${CMAKE_SOURCE_DIR}/dep/recastnavigation/Detour
-  ${CMAKE_SOURCE_DIR}/dep/recastnavigation
-  ${CMAKE_SOURCE_DIR}/dep/include
-  ${MYSQL_INCLUDE_DIR}
-)
+add_definitions(-D__ASSERT_MACROS_DEFINE_VERSIONS_WITHOUT_UNDERSCORES=0)
 
 # include additionals headers
 include_directories(
   ${CMAKE_CURRENT_SOURCE_DIR}
   ${CMAKE_CURRENT_SOURCE_DIR}/vmap
-  ${CMAKE_CURRENT_SOURCE_DIR}/AI
   ${CMAKE_CURRENT_SOURCE_DIR}/AuctionHouseBot
   ${CMAKE_CURRENT_SOURCE_DIR}/BattleGround
   ${CMAKE_CURRENT_SOURCE_DIR}/LuaEngine
@@ -41,8 +32,8 @@ include_directories(
   ${CMAKE_SOURCE_DIR}/dep/lualib
   ${CMAKE_SOURCE_DIR}/src/shared
   ${CMAKE_SOURCE_DIR}/src/framework
+  ${CMAKE_CURRENT_SOURCE_DIR}/playerbot
   ${CMAKE_BINARY_DIR}
-  ${CMAKE_BINARY_DIR}/src/shared
 )
 
 set(SRC_GRP_AI
@@ -479,33 +470,54 @@ source_group("References"
   FILES
     ${SRC_GRP_REFERENCES}
 )
+# Find all the input files
+FILE(GLOB_RECURSE LIBRARY_SRCS RELATIVE "${CMAKE_CURRENT_SOURCE_DIR}" "*.h" "*.cpp")
 
-source_group("Server"
-  FILES
-    ${SRC_GRP_SERVER}
-)
-
-source_group("Tool"
-  FILES
-    ${SRC_GRP_TOOL}
-)
-
-source_group("vmaps"
-  FILES
-    ${SRC_GRP_VMAPS}
-)
-
-source_group("World/Handlers"
-  FILES
-    ${SRC_GRP_WORLD_HANDLERS}
-)
-
-if(PCH)
-  include_directories(${CMAKE_CURRENT_BINARY_DIR})
+if(NOT BUILD_SCRIPTDEV)
+  # exclude script folder for faster build time (used for dev mode)
+  set (EXCLUDE_DIR "AI/ScriptDevAI/scripts/")
+  foreach (TMP_PATH ${LIBRARY_SRCS})
+      string (FIND ${TMP_PATH} ${EXCLUDE_DIR} EXCLUDE_DIR_FOUND)
+      if (NOT ${EXCLUDE_DIR_FOUND} EQUAL -1)
+          list(REMOVE_ITEM LIBRARY_SRCS ${TMP_PATH})
+      endif ()
+  endforeach()
 endif()
+
+if(NOT BUILD_PLAYERBOT)
+  # exclude Playerbot folder
+  set (EXCLUDE_DIR "PlayerBot/")
+  foreach (TMP_PATH ${LIBRARY_SRCS})
+      string (FIND ${TMP_PATH} ${EXCLUDE_DIR} EXCLUDE_DIR_FOUND)
+      if (NOT ${EXCLUDE_DIR_FOUND} EQUAL -1)
+          list(REMOVE_ITEM LIBRARY_SRCS ${TMP_PATH})
+      endif ()
+  endforeach()
+endif()
+
+# Create visual studio groups using folder structure
+foreach(source ${LIBRARY_SRCS})
+    get_filename_component(source_path "${source}" PATH)
+    string(REPLACE "/" "\\" source_path_msvc "${source_path}")
+    source_group("${source_path_msvc}" FILES "${source}")
+endforeach()
 
 add_library(${LIBRARY_NAME} STATIC
   ${LIBRARY_SRCS}
+)
+
+target_link_libraries(${LIBRARY_NAME}
+  PUBLIC shared
+  PUBLIC g3dlite
+  PRIVATE detour
+)
+
+if(WIN32)
+  target_link_libraries(${LIBRARY_NAME} PUBLIC z)
+endif()
+
+target_include_directories(${LIBRARY_NAME}
+  INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 target_link_libraries(${LIBRARY_NAME}
@@ -513,22 +525,45 @@ target_link_libraries(${LIBRARY_NAME}
   detour
   lualib
 )
+add_dependencies(${LIBRARY_NAME} RevisionGenerator)
 
 if(UNIX)
   # Both systems don't have libdl and don't need them
   if (NOT (CMAKE_SYSTEM_NAME STREQUAL "FreeBSD" OR CMAKE_SYSTEM_NAME STREQUAL "NetBSD"))
-    target_link_libraries(${LIBRARY_NAME}
-      dl
-    )
+    target_link_libraries(${LIBRARY_NAME} PUBLIC dl)
   endif()
 endif()
 
 add_dependencies(${LIBRARY_NAME} revision.h)
 add_dependencies(${LIBRARY_NAME} lualib)
+# Define BUILD_SCRIPTDEV if need
+if (BUILD_SCRIPTDEV)
+  add_definitions(-DBUILD_SCRIPTDEV)
+endif()
+
+# Define BUILD_PLAYERBOT if need
+if (BUILD_PLAYERBOT)
+  add_definitions(-DBUILD_PLAYERBOT)
+endif()
 
 # Generate precompiled header
 if(PCH)
-  cotire(${LIBRARY_NAME})
+  if (MSVC)
+    set(PCHBaseName "pchdef")
+    set(PrecompiledBinary "$(IntDir)/${PCHBaseName}.pch")
+    set(PrecompiledHeader "${PCHBaseName}.h")
+    set(PrecompiledSource "${PCHBaseName}.cpp")
+    #set_property(TARGET ${LIBRARY_NAME} PROPERTY COMPILE_FLAGS " /Yu\"${PrecompiledHeader}\" /FI\"${PrecompiledHeader}\" /Fp\"${PrecompiledBinary}\"")
+    #set_property(SOURCE ${PrecompiledSource} PROPERTY COMPILE_FLAGS "/Yc\"${PrecompiledHeader}\" /Fp\"${PrecompiledBinary}\"")
+    set_target_properties(${LIBRARY_NAME} PROPERTIES COMPILE_FLAGS " /Yu\"${PrecompiledHeader}\" /FI\"${PrecompiledHeader}\" /Fp\"${PrecompiledBinary}\" /bigobj")
+    set_source_files_properties(${PrecompiledSource} PROPERTIES COMPILE_FLAGS "/Yc\"${PrecompiledHeader}\" /Fp\"${PrecompiledBinary}\"")
+    set_target_properties(${LIBRARY_NAME} PROPERTIES PROJECT_LABEL "Game")
+  elseif(NOT MINGW)
+    # TODO: Resolve issues with order of includes before enabling Cotire for MinGW builds
+    cotire(${LIBRARY_NAME})
+  endif()
+  include_directories(${CMAKE_CURRENT_BINARY_DIR})
 endif()
 
 install(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/LuaEngine/extensions DESTINATION ${BIN_DIR}/lua_scripts/)
+install(FILES ${CMAKE_CURRENT_SOURCE_DIR}/PlayerBot/playerbot.conf.dist.in DESTINATION ${CONF_DIR} RENAME playerbot.conf.dist)

@@ -20,8 +20,8 @@
 #define OUTDOOR_PVP_H
 
 #include "Common.h"
-#include "ObjectGuid.h"
-#include "SharedDefines.h"
+#include "Entities/ObjectGuid.h"
+#include "Globals/SharedDefines.h"
 #include "OutdoorPvPMgr.h"
 
 class WorldPacket;
@@ -88,6 +88,12 @@ class OutdoorPvP
 
         // Handle player kill
         void HandlePlayerKill(Player* killer, Player* victim);
+
+        // Handle script condition fulfillment
+        virtual bool IsConditionFulfilled(Player const* /*source*/, uint32 /*conditionId*/, WorldObject const* /*conditionSource*/, uint32 /*conditionSourceType*/) { return false; }
+
+        // Handle script condition state change by an external factor
+        virtual void HandleConditionStateChange(uint32 /*conditionId*/, bool /*state*/) {}
 
     protected:
 

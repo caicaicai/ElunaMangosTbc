@@ -18,13 +18,13 @@
 
 #include "OutdoorPvPNA.h"
 #include "WorldPacket.h"
-#include "World.h"
-#include "ObjectMgr.h"
-#include "Object.h"
-#include "Creature.h"
-#include "GameObject.h"
-#include "Player.h"
-#include "Language.h"
+#include "World/World.h"
+#include "Globals/ObjectMgr.h"
+#include "Entities/Object.h"
+#include "Entities/Creature.h"
+#include "Entities/GameObject.h"
+#include "Entities/Player.h"
+#include "Tools/Language.h"
 
 OutdoorPvPNA::OutdoorPvPNA() : OutdoorPvP(),
     m_zoneOwner(TEAM_NONE),
@@ -443,8 +443,7 @@ bool OutdoorPvPNA::HandleGameObjectUse(Player* player, GameObject* go)
             else if (go->GetEntry() == nagrandRoostsAlliance[i])
             {
                 // mark player as pvp
-                player->UpdatePvP(true, true);
-                player->SetFlag(PLAYER_FLAGS, PLAYER_FLAGS_IN_PVP);
+                player->UpdatePvP(true);
 
                 // prevent despawning after go use
                 go->SetRespawnTime(0);
@@ -489,8 +488,7 @@ bool OutdoorPvPNA::HandleGameObjectUse(Player* player, GameObject* go)
             else if (go->GetEntry() == nagrandRoostsHorde[i])
             {
                 // mark player as pvp
-                player->UpdatePvP(true, true);
-                player->SetFlag(PLAYER_FLAGS, PLAYER_FLAGS_IN_PVP);
+                player->UpdatePvP(true);
 
                 // prevent despawning after go use
                 go->SetRespawnTime(0);
@@ -536,7 +534,7 @@ void OutdoorPvPNA::RespawnSoldier()
         {
             // summon a soldier replacement in the order they were set in the deque. delete the element after summon
             const HalaaSoldiersSpawns& location = m_deadSoldiers.front();
-            player->SummonCreature(m_zoneOwner == ALLIANCE ? NPC_ALLIANCE_HANAANI_GUARD : NPC_HORDE_HALAANI_GUARD, location.x, location.y, location.z, location.o, TEMPSUMMON_DEAD_DESPAWN, 0, true);
+            player->SummonCreature(m_zoneOwner == ALLIANCE ? NPC_ALLIANCE_HANAANI_GUARD : NPC_HORDE_HALAANI_GUARD, location.x, location.y, location.z, location.o, TEMPSPAWN_DEAD_DESPAWN, 0, true);
             m_deadSoldiers.pop();
             break;
         }
